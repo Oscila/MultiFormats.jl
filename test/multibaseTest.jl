@@ -1,6 +1,6 @@
 using MultiFormats
 
-inputString = "llllll work."
+inputString = "lffsdasdf work."
 
 io = IOBuffer()
 write(io, inputString)
@@ -15,3 +15,5 @@ encbytes .|> Char |> String
 decbytes = MultiFormats.multiDecode(:base64, encbytes)
 
 outputString = decbytes .|> Char |> String
+
+inputString == strip(outputString, '\0')

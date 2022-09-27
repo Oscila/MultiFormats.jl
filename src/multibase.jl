@@ -221,24 +221,16 @@ end
 
 function multiDecode(symbol::Symbol, bytes::Vector{UInt8})
 	decoder = Symbol(symbol, :Dec, :Dict) |> eval
-	# we should probably fill with pad values based encoder
+	# TODO 
 	decodedArray = zeros(UInt8, div(div(length(bytes)*3, 4, RoundUp), 3, RoundUp)*3 |> Int)
 	mask = 0xff |> UInt32
 	for (idx, byteArray) in enumerate(Base.Iterators.partition(bytes, 4))
 		word = zero(UInt32)
 		for (idx, byte) in enumerate(byteArray)
-			word += ((byte |> UInt32) << (6*(idx - 1)))
+			word += ((decoder[(byte&mask)] |> UInt32) << (6*(idx - 1)))
 		end
-		# word = reinterpret(
-			# UInt32,
-			# push!(
-				# UInt8[],
-				# (byteArray)...,
-				# zeros(UInt8, 4 - length(byteArray))...,
-			# )
-		# ) |> collect |> (x) -> getindex(x, 1)
 		for segment in 1:3
-			decodedArray[(idx-1)*3 + segment] = decoder[(word&mask) |> UInt8]
+			decodedArray[(idx-1)*3 + segment] = ((word&mask) |> UInt8)
 			word >>= 8
 		end
 	end
