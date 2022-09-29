@@ -1,5 +1,5 @@
 using Test
-using Multiformats
+using MultiFormats
 
 # for i in ([0, 1, 127, 128, 255, 300, 16384] .|> UInt32)
 	# @info i => bitstring.(Multiformats.UVarInt(i))

@@ -1,14 +1,17 @@
 using CSV
 using DataFrames
+using Base64
+using Downloads
 
 # TODO artifact or a permanent location
-basetable = download("https://raw.githubusercontent.com/multiformats/multibase/master/multibase.csv")
+basetable = Downloads.download("https://raw.githubusercontent.com/multiformats/multibase/master/multibase.csv")
 
 multibaseTable = CSV.read(open(basetable), DataFrame, stripwhitespace=true)
 
 allowmissing(multibaseTable)
 
-# Base Header
+
+# TODO Base Header
 quote
 	@enum BaseHeader $(
 		(
@@ -20,6 +23,7 @@ end |> eval
 
 # Base Status
 baseStatusList = select(multibaseTable, "status").status .|> (x) -> "Base_"*x
+
 
 quote
 	@enum BaseStatus $(
@@ -45,10 +49,13 @@ end
 # Base descriptions
 baseDescriptions = select(multibaseTable, "description").description
 
+
 abstract type AbstractMultiBase end
+
 
 encodingNames = select(multibaseTable, "encoding").encoding
 encodingSymbols = encodingNames .|> (x)->replace(x, "-"=>"_") .|> Symbol
+
 
 for (idx, name) in enumerate(encodingNames)
 	sName = "Base-"*name
@@ -68,7 +75,6 @@ for (idx, name) in enumerate(encodingNames)
 		getBaseName(a::Type{$structName}) = $name
 		getBaseName(a::Val{Symbol($mName)}) = $name
 		getBaseName(a::Val{$code}) = $name
-		
 
 		getBaseSymbol(a::$structName) = Symbol($mName)
 		getBaseSymbol(a::Type{$structName}) = Symbol($mName)
@@ -105,8 +111,10 @@ for (idx, name) in enumerate(encodingNames)
 	end |> eval
 end
 
+
 base(name::Symbol) = getBase(Val(name))
 base(id::Union{Unsigned, Char}) = getBase(Val(id))
+
 
 function base(code::String)
 	if code == "0x00"
@@ -115,6 +123,7 @@ function base(code::String)
 		return base(code[1])
 	end
 end
+
 
 baseCode(name::Symbol) = getBaseCode(Val(name))
 baseCode(id::Union{Unsigned, Char}) = getBaseCode(Val(id))
@@ -128,7 +137,6 @@ baseDescription(name::Symbol) = getBaseDescription(Val(name))
 baseDescription(ud::Union{Unsigned, Char}) = getBaseDescription(Val(id))
 
 
-# TODO list is right now just a place holder like emoji needs work
 encodeString(a::Val{:base2}) = "01"
 encodeString(a::Val{:base8}) = "01234567"
 encodeString(a::Val{:base10}) = "0123456789"
@@ -147,100 +155,170 @@ encodeString(a::Val{:base36}) = "0123456789abcdefghijklmnopqrstuvwxyz"
 encodeString(a::Val{:base36upper}) = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 encodeString(a::Val{:base58flickr}) = "123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ"
 encodeString(a::Val{:base58btc}) = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
-encodeString(a::Val{:base64}) = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+encodeString(a::Val{:base64}) = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
 encodeString(a::Val{:base64pad}) = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
 encodeString(a::Val{:base64url}) = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 encodeString(a::Val{:base64urlpad}) = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_="
 encodeString(a::Val{:proquint}) = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_="
 encodeString(a::Val{:base256emoji}) = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_="
-
-# symbol to val dispatch
 encodeString(a::Symbol) = encodeString(Val(a))
 
+# 
+# for enc in encodingSymbols
+	# if enc == :identity
+		# continue
+	# end
+	# encName = Symbol(enc, :Enc, :Dict)
+	# decName = Symbol(enc, :Dec, :Dict)
+	# encString = encodeString(enc)
+	# quote
+		# $encName = Dict{UInt8, UInt8}()
+		# $decName = Dict{UInt8, UInt8}()
+		# for (idx, char) in enumerate($encString)
+			# $encName[UInt8(idx-1)] = UInt8(char)
+			# $decName[UInt8(char)] = UInt8(idx-1)
+		# end
+	# end |> eval
+# end
+# 
 
-# TODO not used can be removed maybe
-function buildEncodingTable(baseEnc::Symbol)
-	encodeDict = Dict{UInt8, UInt8}()
-	decodeDict = Dict{UInt8, UInt8}()
-	encString = encodeString(baseEnc)
-	for (idx, char) in enumerate(encString)
-		encodeDict[UInt8(idx-1)] = UInt8(char)
-		decodeDict[UInt8(char)] = UInt8(idx-1) 
+function decodeString(a::Val{:base64})
+	decodeArray = zeros(UInt8, 256)
+	for (i, c) in enumerate(encodeString(a))
+		decodeArray[UInt8(c)] = i-1
 	end
-	return (encodeDict, decodeDict)
+	return decodeArray
 end
 
-
-for enc in encodingSymbols
-	# TODO skipping identity for now
-	if enc == :identity
-		continue
-	end
-	encName = Symbol(enc, :Enc, :Dict)
-	decName = Symbol(enc, :Dec, :Dict)
-	encString = encodeString(enc)
-	quote
-		$encName = Dict{UInt8, UInt8}()
-		$decName = Dict{UInt8, UInt8}()
-		for (idx, char) in enumerate($encString)
-			$encName[UInt8(idx-1)] = UInt8(char)
-			$decName[UInt8(char)] = UInt8(idx-1)
-		end
-	end |> eval
-
+macro decodeStr(a::Expr)
+	decodeString(Val(eval(a)))
 end
 
+decodeString(a::Symbol) = decodeString(Val(a))
 
-# TODO not used
+
+encode(symbol::Symbol, x::UInt8) = @inline encode(Val(symbol), x::UInt8)
+encode(::Val{:base64}, x::UInt8) = @inline @inbounds encodeString(:base64)[(x&0x3f)+1]
+
+decode(symbol::Symbol, x::UInt8) = @inline decode(Val(symbol), x::UInt8)
+decode(::Val{:base64}, x::UInt8) = @inline @inbounds decodeString(:base64)[x]
+
+
 function multiEncode(::Type{BaseType}, bytes::Vector{UInt8}) where BaseType<:AbstractMultiBase
 	pushfirst!(baseCode(BaseType), bytes)
 end
 
-# TODO not used
+
 function multiDecode(::Type{BaseType}, bytes::Vector{UInt8}) where BaseType<:AbstractMultiBase
 	popfirst!(baseCode(BaseType), bytes)
 end
 
-function multiEncode(symbol::Symbol, bytes::Vector{UInt8})
-	encoder = Symbol(symbol, :Enc, :Dict) |> eval
-	# TODO we will have to fill with pad values based on encoder
-	encodedArray = zeros(UInt8, div(div(length(bytes)*4, 3, RoundUp), 4, RoundUp)*4 |> Int)
-	mask = 0x3f |> UInt32
-	for (idx, byteArray) in enumerate(Base.Iterators.partition(bytes, 3))
-		word = zero(UInt32)
-		for (idx, byte) in enumerate(byteArray)
-			word += ((byte |> UInt32) << (8*(idx-1)))
+
+function multiEncode(enc::Val{:base64}, ioBuffer::IOBuffer, ptr::Ptr{UInt8}, n::UInt)::UInt
+	pad = '='
+	nWrites = 0
+	bufSize = 512
+	inSize = div(div(bufSize*3, 4, RoundUp), 3, RoundUp)*3 |> Int
+	buffer = Vector{UInt8}(undef, bufSize)
+	bytes = unsafe_wrap(Vector{UInt8}, ptr, n)
+	padCount = Ref(0)
+	for bufRange in Base.Iterators.partition(1:n, inSize)
+		for (pIdx, ptrRange) in enumerate(Base.Iterators.partition(bufRange, 3))
+			padCount[] = 3 - length(ptrRange)
+			word = zero(UInt32)
+	 		for (idx, ptrIdx) in enumerate(ptrRange)
+				word += ((bytes[ptrIdx] |> UInt32) << (8*(4 - idx)))
+			end
+			for segment in 1:(4-padCount[])
+				buffer[(pIdx-1)*4 + segment] = encode(Val(:base64), ((word) >> 26) |> UInt8)
+				word <<= 6
+			end
+			for segment in 1:padCount[]
+				buffer[(pIdx-1)*4 + length(ptrRange) + segment + 1] = pad
+			end
+			nWrites+=(3-padCount[])
 		end
-		for segment in 1:4
-			encodedArray[(idx-1)*4 + segment] = encoder[(word&mask) |> UInt8]
-			word >>= 6
-		end
+		write(ioBuffer, 
+			unsafe_wrap(
+				Vector{UInt8}, 
+				pointer(buffer), 
+				(div(div(length(bufRange)*4, 3, RoundUp), 4, RoundUp)*4 |> Int)
+			)
+		)
 	end
-	return encodedArray
+	return nWrites
+end
+
+function multiEncode(enc::Val{:base64}, bytes::Union{String, Vector{UInt8}})
+	io = IOBuffer()
+	multiEncode(enc, io, pointer(bytes), length(bytes) |> UInt)
+	return String(take!(io))
+end
+
+function multiDecode(enc::Val{:base64}, ioBuffer::IOBuffer, ptr::Ptr{UInt8}, n::UInt)::UInt
+	pad = '=' |> UInt8
+	nWrites = 0
+	bufSize = 512
+	inSize = div(div(bufSize*4, 3, RoundDown), 4, RoundDown)*4 |> Int
+	buffer = Vector{UInt8}(undef, bufSize)
+	bytes = unsafe_wrap(Vector{UInt8}, ptr, n)
+	padCount = Ref(0)
+	for bufRange in Base.Iterators.partition(1:n, inSize)
+		for (pIdx, ptrRange) in enumerate(Base.Iterators.partition(bufRange, 4))
+			padCount[] = 4 - length(ptrRange)
+			word = zero(UInt32)
+	 		for (idx, ptrIdx) in enumerate(ptrRange)
+	 			if bytes[ptrIdx] == pad
+ 					padCount[] += 1
+ 				end
+				word += ((decode(enc, bytes[ptrIdx]) |> UInt32) << (6*(5 - idx) + 2))
+			end
+			for segment in 1:(3-padCount[])
+				buffer[(pIdx-1)*3 + segment] = (((word) >> 24) |> UInt8)
+				word <<= 8
+			end
+			nWrites+=(4-padCount[])
+		end
+		write(ioBuffer, 
+			unsafe_wrap(
+				Vector{UInt8}, 
+				pointer(buffer), 
+				(div(div(length(bufRange)*3, 4, RoundUp), 3, RoundUp)*3 |> Int) - padCount[]
+			)
+		)
+	end
+	return nWrites
+end
+
+function multiDecode(enc::Val{:base64}, bytes::Union{String, Vector{UInt8}})
+	io = IOBuffer()
+	multiDecode(enc, io, pointer(bytes), length(bytes) |> UInt)
+	return take!(io)
+end
+
+
+function multiEncode(symbol::Symbol, bytes::Vector{UInt8})
+	multiEncode(Val(symbol), bytes)
+end
+
+function multiEncode(symbol::Symbol, text::String)
+	multiEncode(Val(symbol), text)
 end
 
 function multiDecode(symbol::Symbol, bytes::Vector{UInt8})
-	decoder = Symbol(symbol, :Dec, :Dict) |> eval
-	# TODO 
-	decodedArray = zeros(UInt8, div(div(length(bytes)*3, 4, RoundUp), 3, RoundUp)*3 |> Int)
-	mask = 0xff |> UInt32
-	for (idx, byteArray) in enumerate(Base.Iterators.partition(bytes, 4))
-		word = zero(UInt32)
-		for (idx, byte) in enumerate(byteArray)
-			word += ((decoder[(byte&mask)] |> UInt32) << (6*(idx - 1)))
-		end
-		for segment in 1:3
-			decodedArray[(idx-1)*3 + segment] = ((word&mask) |> UInt8)
-			word >>= 8
-		end
-	end
-	return decodedArray
+	multiDecode(Val(symbol), bytes)
 end
+
+function multiDecode(symbol::Symbol, text::String)
+	multiDecode(Val(symbol), text)
+end
+
 
 function multiWrap(symbol::Symbol, bytes::Vector{UInt8})
 	code = reinterpret(UInt8, [baseCode(symbol)]) |> reverse
 	pushfirst!(bytes, code...)
 end
+
 
 function multiUnwrap(symbol::Symbol, bytes::Vector{UInt8})
 	code = reinterpret(UInt8, [baseCode(symbol)]) |> reverse
@@ -252,6 +330,8 @@ function multiUnwrap(symbol::Symbol, bytes::Vector{UInt8})
 	bytes
 end
 
+
 export base, baseName, baseSymbol, baseCode, 
 	baseStatus, baseDescription,
 	multiEncode, multiDecode
+

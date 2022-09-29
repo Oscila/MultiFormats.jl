@@ -1,8 +1,9 @@
 using CSV
 using DataFrames
+using Downloads
 
 # TODO artifact or a permanent location
-table = download("https://raw.githubusercontent.com/multiformats/multicodec/master/table.csv")
+table = Downloads.download("https://raw.githubusercontent.com/multiformats/multicodec/master/table.csv")
 
 multicodecTable = CSV.read(open(table), DataFrame, stripwhitespace=true)
 

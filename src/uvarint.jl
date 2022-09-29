@@ -3,7 +3,6 @@ const MSB = 0b10000000
 
 export UVarInt, UVarIntDecode
 
-
 function UVarInt(n::Unsigned)
 	(mask = (zero(n) | typemax(UInt8))) |> bitstring
 	nbytes = sizeof(n)

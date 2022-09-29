@@ -1,8 +1,9 @@
 using CSV
 using DataFrames
+using Downloads
 
 # TODO artifact or a permanent location
-protocoltable = download("https://raw.githubusercontent.com/multiformats/multiaddr/master/protocols.csv")
+protocoltable = Downloads.download("https://raw.githubusercontent.com/multiformats/multiaddr/master/protocols.csv")
 
 multiprotocolTable = CSV.read(open(protocoltable), DataFrame, stripwhitespace=true)
 
@@ -37,7 +38,8 @@ protocolCodeList = select(multiprotocolTable, "code").code
 # Protocol Comments
 protocolComments = select(multiprotocolTable, "comment").comment
 
-abstract type AbstractMultiAddr end
+abstract type AbstractMultiAddrProtocol end
+# abstract type AbstractMultiAddr end
 
 for (idx, name) in enumerate(select(multiprotocolTable, "name").name)
 	sName = "Protocol-"*name
@@ -56,7 +58,7 @@ for (idx, name) in enumerate(select(multiprotocolTable, "name").name)
 	end
 
 	quote 
-		struct $structName <: AbstractMultiAddr
+		struct $structName <: AbstractMultiAddrProtocol
 		end
 
 		getProtocolName(a::$structName) = $name
@@ -123,12 +125,12 @@ protocolComment(name::Symbol) = getProtocolComment(Val(name))
 protocolComment(ud::Union{Unsigned, Char}) = getProtocolComment(Val(id))
 
 # TODO
-function encodeProtocol(::Type{ProtocolType}, bytes::Vector{UInt8}) where ProtocolType<:AbstractMultiAddr
+function encodeProtocol(::Type{ProtocolType}, bytes::Vector{UInt8}) where ProtocolType<:AbstractMultiAddrProtocol
 	pushfirst!(protocolCode(ProtocolType), bytes)
 end
 
 # TODO
-function decodeProtocol(::Type{ProtocolType}, bytes::Vector{UInt8}) where ProtocolType<:AbstractMultiAddr
+function decodeProtocol(::Type{ProtocolType}, bytes::Vector{UInt8}) where ProtocolType<:AbstractMultiAddrProtocol
 	popfirst!(protocolCode(ProtocolType), bytes)
 end
 

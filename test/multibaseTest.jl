@@ -1,19 +1,23 @@
 using MultiFormats
+using Base64
+using Test
 
-inputString = "lffsdasdf work."
+inputString = "light work"
 
 io = IOBuffer()
 write(io, inputString)
 seek(io, 0)
 
 buf = read(io)
+buf = rand(UInt8, 32531)
 
-encbytes = MultiFormats.multiEncode(:base64, buf)
+encodedString = MultiFormats.multiEncode(:base64, buf)
 
-encbytes .|> Char |> String
+@testset "Encode and decode" begin
+	@test base64encode(buf) == multiEncode(:base64, buf)
+	@test base64decode(encodedString) == multiDecode(:base64, encodedString |> collect .|> UInt8)
+	@test base64encode(buf) == multiEncode(:base64, buf)
+end
 
-decbytes = MultiFormats.multiDecode(:base64, encbytes)
+# TODO check for large strings and bytes
 
-outputString = decbytes .|> Char |> String
-
-inputString == strip(outputString, '\0')
